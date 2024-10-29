@@ -151,47 +151,61 @@ with st.spinner('Updating Report .... ') :
 
     st.markdown("---")
 
-    # Tentukan kolom `sub_region` berdasarkan level wilayah
-if level == 'kecamatan':
-    sub_region_col = 'Kelurahan'
-elif level == 'kota / kabupaten':
-    sub_region_col = 'Kecamatan'
-else:
-    sub_region_col = 'Kota'
-
-# Filter data untuk service_point yang dipilih
-filtered_data = tot_status_df[tot_status_df['service_point'] == sp]
-
-# Hitung persentase `total_selesai` untuk setiap bidang di setiap `sub_region`
-sub_region_data = (
-    filtered_data.groupby([sub_region_col, 'service_point'])['total_selesai']
-    .sum()
-    .groupby(level=0).apply(lambda x: 100 * x / float(x.sum()))  # Menghitung persentase
-    .reset_index(name='percent_selesai')
-)
-
-# Buat grafik stack bar horizontal
-fig = go.Figure()
-
-# Tambahkan data ke grafik untuk setiap bidang recode
-for bidang in sub_region_data['service_point'].unique():
-    bidang_data = sub_region_data[sub_region_data['service_point'] == bidang]
-    fig.add_trace(go.Bar(
-        y=bidang_data[sub_region_col],
-        x=bidang_data['percent_selesai'],
-        name=bidang,
-        orientation='h'
-    ))
-
-fig.update_layout(
-    barmode='stack',
-    title='Persentase Total Selesai per Bidang di Setiap Sub-Region',
-    xaxis=dict(title='Persentase'),
-    yaxis=dict(title=sub_region_col),
-    height=500
-)
-
-# Tampilkan grafik di Streamlit
-st.plotly_chart(fig, use_container_width=True)
+    
+    import plotly.express as px
 
 
+    # Load dataset
+    data = pd.read_excel('sp_izin.xlsx')
+
+    # Muat data dari sheet "Wilayah derivative" dan mulai dari baris yang berisi data kolom sebenarnya
+    df = pd.read_excel(data, sheet_name="Wilayah derivative", header=1)
+    # Fungsi untuk filter data berdasarkan level wilayah
+    def filter_data(data, level, wilayah):
+        if level == 'Kota':
+            return data[data['kota'] == wilayah]
+        elif level == 'Kecamatan':
+            return data[data['Kec'] == wilayah]
+        elif level == 'Kelurahan':
+            return data[data['Kelurahan'] == wilayah]
+        return data
+
+    # Fungsi untuk mengonversi total_selesai menjadi persentase per bidang yang memiliki nilai
+    def calculate_percentage(data):
+        bidang_columns = [
+            "Esdm", "Kehutanan", "Kelautan Dan Perikanan", "Kepemudaan dan Keolahragaan",
+            "Kesatuan Bangsa Dan Politik Dalam Negeri", "Kesehatan", "Ketenteraman, ketertiban Umum dan Pelindungan Masyarakat",
+            "Lingkungan Hidup", "Pariwisata", "Pekerjaan Umum Dan Penataan Ruang", 
+            "Pelayanan Administrasi", "Pendidikan", "Perdagangan", "Perhubungan", 
+            "Pertanahan Yang Menjadi Kewenangan Daerah", "Pertanian", 
+            "Perumahan Rakyat Dan Kawasan Permukiman", "Sosial"
+        ]
+        
+        # Hanya mempertahankan kolom bidang yang memiliki nilai di wilayah terkait
+        data = data.loc[:, (data[bidang_columns] > 0).any(axis=0)]
+        
+        # Menghitung persentase per bidang yang memiliki nilai
+        data[data.columns[2:]] = data[data.columns[2:]].div(data[data.columns[2:]].sum(axis=1), axis=0) * 100
+        return data
+
+    # Sidebar untuk pilihan level wilayah dan wilayah tertentu
+    level = st.sidebar.selectbox("Pilih Level Wilayah", ["Kota", "Kecamatan", "Kelurahan"])
+    wilayah = st.sidebar.selectbox("Pilih Wilayah", data[level].unique())
+
+    # Filter data sesuai level wilayah
+    filtered_data = filter_data(data, level, wilayah)
+
+    # Hitung persentase untuk bidang yang ada nilainya
+    filtered_data = calculate_percentage(filtered_data)
+
+    # Visualisasi dengan Plotly Stack Bar Chart Horizontal
+    fig = px.bar(
+        filtered_data, 
+        y=filtered_data[level],
+        x=filtered_data.columns[2:],  # Hanya kolom bidang yang ada nilainya
+        orientation='h',
+        title=f"Distribusi Persentase Bidang di {wilayah} ({level})",
+        labels={"value": "Persentase", "variable": "Bidang Recode"}
+    )
+
+    st.plotly_chart(fig)
