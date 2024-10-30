@@ -4,7 +4,7 @@ import plotly.express as px
 
 # Load data dari file Excel
 file_path = 'sp_izin.xlsx'  # Ganti dengan path file yang sesuai
-data = pd.read_excel(file_path, sheet_name='wilayah_derivative', skiprows=5)  # skiprows=5 agar mulai dari baris data
+data = pd.read_excel(file_path, sheet_name='Wialayah derivative', skiprows=5)  # skiprows=5 agar mulai dari baris data
 
 # Filter data hanya untuk wilayah Jakarta Timur, Jakarta Selatan, Jakarta Barat, dan Jakarta Utara
 wilayah_terpilih = ["Jakarta Timur", "Jakarta Selatan", "Jakarta Barat", "Jakarta Utara"]
